@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { cpsOf, destById } from '../lib/engine';
-import type { Action, Checkpoint, Criterion, Destination, Metric, Strategy, Unit, Zone } from '../lib/types';
+import type { Action, Checkpoint, Criterion, Destination, DestIcon, Metric, Strategy, Unit, Zone } from '../lib/types';
 import { newId } from '../lib/util';
 import { deleteCheckpoint, deleteDestination, deleteMetric, deleteZone, getState, moveCheckpoint, saveCheckpoint, saveDestination, saveMetric, saveZone } from '../store/store';
 import { useUI } from './ctx';
-import { IconDown, IconPlus, IconTrash, IconUp } from './icons';
+import { DEST_ICONS, IconDown, IconPlus, IconTrash, IconUp, destIcon } from './icons';
 import { Btn, Field, Modal, TextList } from './primitives';
 
 const clone = <T,>(v: T): T => structuredClone(v);
@@ -336,7 +336,7 @@ export function EditDestModal({ destId }: { destId: string | null }) {
   const [crit, setCrit] = useState('');
   const valid = d.name.trim() && d.goal.trim() && (existing || (cpTitle.trim() && cpResult.trim() && act.trim() && crit.trim()));
   const save = () => {
-    const dest: Destination = { ...d, name: d.name.trim(), goal: d.goal.trim(), start: d.start.trim(), tag: (d.tag || d.name).trim().toUpperCase() };
+    const dest: Destination = { ...d, name: d.name.trim(), goal: d.goal.trim(), start: d.start.trim(), tag: (d.tag || d.name).trim().toUpperCase(), short: d.short?.trim() || undefined };
     if (existing) saveDestination(dest);
     else {
       const first: Checkpoint = {
@@ -361,7 +361,7 @@ export function EditDestModal({ destId }: { destId: string | null }) {
     ui.modal(null);
     if (!existing) {
       ui.go({ k: 'home' });
-      ui.detent('half');
+      ui.detent('base');
     }
   };
   return (
@@ -413,6 +413,19 @@ export function EditDestModal({ destId }: { destId: string | null }) {
         <Field label="Nome">
           <input value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} />
         </Field>
+        <Field label="Etichetta breve" hint="Quella che compare nel selettore in alto.">
+          <input value={d.short ?? ''} onChange={(e) => setD({ ...d, short: e.target.value })} maxLength={14} />
+        </Field>
+        <div className="field">
+          <span className="field-l">Icona</span>
+          <div className="chips">
+            {DEST_ICONS.map((k: DestIcon) => (
+              <button key={k} type="button" className={`chip-btn icon${(d.icon ?? 'target') === k ? ' on' : ''}`} onClick={() => setD({ ...d, icon: k })} aria-label={k}>
+                {destIcon(k, 18)}
+              </button>
+            ))}
+          </div>
+        </div>
         <Field label="Obiettivo, in modo misurabile">
           <textarea rows={2} value={d.goal} onChange={(e) => setD({ ...d, goal: e.target.value })} />
         </Field>
@@ -470,7 +483,7 @@ export function ZoneModal({ id }: { id: string | null }) {
             full
             disabled={!z.name.trim()}
             onClick={() => {
-              saveZone({ ...z, name: z.name.trim() });
+              saveZone({ ...z, name: z.name.trim(), short: z.short?.trim() || undefined });
               ui.modal(null);
             }}
           >
@@ -484,6 +497,9 @@ export function ZoneModal({ id }: { id: string | null }) {
       <div className="form">
         <Field label="Nome">
           <input value={z.name} onChange={(e) => setZ({ ...z, name: e.target.value })} />
+        </Field>
+        <Field label="Etichetta sulla mappa" hint="Una forma breve del nome, se serve.">
+          <input value={z.short ?? ''} onChange={(e) => setZ({ ...z, short: e.target.value })} maxLength={22} />
         </Field>
         <Field label="Come la riconosco">
           <textarea rows={3} value={z.signal} onChange={(e) => setZ({ ...z, signal: e.target.value })} />

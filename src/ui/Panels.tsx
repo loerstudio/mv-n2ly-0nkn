@@ -68,7 +68,7 @@ export function DestView({ s }: { s: State }) {
                 onClick={() => {
                   setActiveDest(d.id);
                   ui.go({ k: 'home' });
-                  ui.detent('half');
+                  ui.detent('base');
                 }}
                 tone={d.id === dest.id ? 'on' : undefined}
                 chevron

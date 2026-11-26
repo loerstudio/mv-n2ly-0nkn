@@ -3,6 +3,8 @@ export type ActionStatus = 'todo' | 'doing' | 'done' | 'blocked' | 'failed';
 export interface Action {
   id: string;
   text: string;
+  /** short headline for the lane (derived from the text when missing) */
+  short?: string;
   status: ActionStatus;
   createdAt: number;
   startedAt?: number;
@@ -92,9 +94,14 @@ export interface Metric {
   log: Reading[];
 }
 
+export type DestIcon = 'target' | 'dumbbell' | 'heart' | 'plane' | 'rocket' | 'users' | 'wallet' | 'star' | 'home' | 'flag';
+
 export interface Destination {
   id: string;
   tag: string;
+  /** short label for the selector chips (falls back to the name) */
+  short?: string;
+  icon?: DestIcon;
   name: string;
   goal: string;
   start: string;
@@ -104,6 +111,8 @@ export interface Destination {
 export interface Zone {
   id: string;
   name: string;
+  /** label on the map (falls back to the name) */
+  short?: string;
   signal: string;
   counter: string;
 }

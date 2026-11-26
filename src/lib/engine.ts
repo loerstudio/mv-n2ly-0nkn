@@ -315,3 +315,14 @@ export function weekPriorities(s: State) {
     queue: queue.map((a, i) => ({ id: a.id, priority: i + 1, text: a.text, status: a.status })),
   };
 }
+
+/** one-line headline of an action for the compact lane */
+export function actionTitle(a: Action): string {
+  if (a.short) return a.short;
+  const t = a.text.trim();
+  if (t.length <= 52) return t.replace(/[.:;]$/, '');
+  const cut = t.search(/, |: | — | \(|\. /);
+  if (cut >= 14 && cut <= 62) return t.slice(0, cut);
+  const w = t.slice(0, 50).replace(/\s+\S*$/, '');
+  return `${w}…`;
+}

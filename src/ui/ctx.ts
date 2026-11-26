@@ -22,7 +22,7 @@ export type ModalSpec =
   | { k: 'reading'; metricId: string }
   | { k: 'confirm'; title: string; body: string; ok: string; danger?: boolean; onOk: () => void };
 
-export type Detent = 'peek' | 'half' | 'full';
+export type Detent = 'min' | 'base' | 'half' | 'full';
 
 export interface UI {
   go(v: View): void;

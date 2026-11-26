@@ -1,257 +1,228 @@
 import { useState } from 'react';
-import { contactsForNext, cpById, cpEta, cpStatus, cpsOf, critMet, conv, cur, currentCp, destById, fmtEta, lastReadingT, lockReasons, metricById, nextAction, openActions, progress, targetCurrent, targetGoal, whereText } from '../lib/engine';
+import { actionTitle, contactsForNext, cpById, cpEta, cpStatus, cpsOf, critMet, conv, cur, currentCp, destById, fmtEta, lastReadingT, lockReasons, metricById, nextAction, openActions, progress, targetCurrent, targetGoal, whereText } from '../lib/engine';
 import type { Action, Checkpoint, State } from '../lib/types';
 import { ago, fmtDate, fmtDur, fmtVal } from '../lib/util';
 import { activeDest, addAction, blockAction, completeAction, moveAction, reopenCheckpoint, setActiveDest, startAction, unblockAction, unverifyCriterion } from '../store/store';
 import { useUI } from './ctx';
-import { IconBlock, IconCheck, IconChevron, IconFocus, IconLock, IconPlay, IconPlus, IconRecalc, IconResult, IconTurn, IconDown, IconUp } from './icons';
+import { IconBlock, IconCheck, IconChevron, IconFocus, IconLock, IconNav, IconPlay, IconPlus, IconRecalc, IconResult, IconTurn, IconDown, IconUp } from './icons';
 import { Bar, Btn, Collapsible, Row, Sec } from './primitives';
 
-// ── HOME: where am I, where am I going, next checkpoint, what now ──────────
+// ── HOME: the lane (compact) and the full next-turn controls (expanded) ───
 export function Home({ s }: { s: State }) {
   const ui = useUI();
   const dest = activeDest(s);
+  const list = cpsOf(s, dest.id);
   const cp = currentCp(s, dest.id);
   const [just, setJust] = useState<string | null>(null);
 
-  if (!cp && cpsOf(s, dest.id).length === 0) {
-    return (
-      <div className="home">
-        <div className="turn waiting">
-          <div className="turn-tag">
-            <IconTurn size={16} /> NESSUN CHECKPOINT
-          </div>
-          <p className="turn-text">{dest.name} non ha ancora un percorso.</p>
-          <p className="muted">Aggiungi il primo checkpoint: un risultato esatto, come lo verifichi e la prima azione.</p>
-          <Btn kind="primary" full icon={<IconPlus size={18} />} onClick={() => ui.modal({ k: 'edit-cp', cpId: null, destId: dest.id })}>
-            Aggiungi un checkpoint
-          </Btn>
-        </div>
-      </div>
-    );
-  }
+  const finish = (cpId: string, aid: string) => {
+    completeAction(cpId, aid);
+    setJust(aid);
+  };
 
-  if (!cp) {
-    return (
-      <div className="home">
-        <div className="turn reached">
-          <div className="turn-tag">
-            <IconCheck size={15} /> DESTINAZIONE RAGGIUNTA
-          </div>
-          <p className="turn-text">{dest.name}: {dest.goal}</p>
-          <p className="muted">Tutti i checkpoint sono raggiunti. Scegli la prossima destinazione o rivedi il percorso fatto.</p>
-          <div className="btn-row">
-            <Btn kind="primary" full onClick={() => ui.modal({ k: 'edit-dest', destId: null })} icon={<IconPlus size={18} />}>
-              Nuova destinazione
-            </Btn>
-            <Btn full onClick={() => ui.go({ k: 'dest' })}>
-              Rivedi il percorso
-            </Btn>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  let title = 'Resta nella corsia';
+  let sub = 'Finché non completi questo step, niente fuori rotta.';
+  let rows: Action[] = [];
+  let cta: { label: string; run: () => void } = { label: 'Continua', run: () => undefined };
+  let tone = '';
+  const status = cp ? cpStatus(s, cp) : null;
+  const act = cp ? nextAction(cp) : null;
+  const p = cp ? progress(s, cp) : null;
 
-  const status = cpStatus(s, cp);
-  const act = nextAction(cp);
-  const p = progress(s, cp);
-  const idx = cpsOf(s, dest.id).findIndex((c) => c.id === cp.id);
-
-  const rows = (
-    <div className="ctx-rows">
-      <Row onClick={() => ui.go({ k: 'dest' })} chevron>
-        <div>
-          <div className="lab">Dove sei</div>
-          <div className="val">{whereText(s, dest)}</div>
-          <Bar f={cpsOf(s, dest.id).filter((c) => c.doneAt).length / Math.max(1, cpsOf(s, dest.id).length) + p.f / Math.max(1, cpsOf(s, dest.id).length)} />
-        </div>
-      </Row>
-      <Row onClick={() => ui.go({ k: 'dest' })} chevron>
-        <div>
-          <div className="lab">Dove stai andando</div>
-          <div className="val">
-            {dest.name} <span className="soft">— {dest.goal}</span>
-          </div>
-        </div>
-      </Row>
-      <Row onClick={() => ui.openCp(cp.id)} chevron>
-        <div>
-          <div className="lab">Prossimo checkpoint</div>
-          <div className="val">
-            {idx + 1}. {cp.title}
-          </div>
-        </div>
-      </Row>
-    </div>
-  );
-
-  if (status === 'locked') {
-    const reasons = lockReasons(s, cp);
+  if (list.length === 0) {
+    title = 'Nessun percorso';
+    sub = `${dest.name} non ha ancora un checkpoint: un risultato esatto, come lo verifichi, la prima azione.`;
+    cta = { label: 'Aggiungi un checkpoint', run: () => ui.modal({ k: 'edit-cp', cpId: null, destId: dest.id }) };
+  } else if (!cp) {
+    title = 'Destinazione raggiunta';
+    sub = `${dest.name}: ${dest.goal}`;
+    tone = 'ok';
+    cta = { label: 'Nuova destinazione', run: () => ui.modal({ k: 'edit-dest', destId: null }) };
+  } else if (status === 'locked') {
     const blocker = cp.deps.map((id) => cpById(s, id)).find((c) => c && !c.doneAt);
-    return (
-      <div className="home">
-        <div className="turn waiting">
-          <div className="turn-tag">
-            <IconLock size={15} /> IN ATTESA
-          </div>
-          <p className="turn-text">{cp.title}</p>
-          <ul className="plain">
-            {reasons.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-          </ul>
-          <p className="muted">Questo percorso riparte quando il checkpoint che lo precede è raggiunto. Nessuna azione da fare qui, per ora.</p>
-          {blocker && (
-            <Btn
-              kind="primary"
-              full
-              onClick={() => {
-                setActiveDest(blocker.destId);
-                ui.openCp(blocker.id);
-              }}
-            >
-              Vai a: {blocker.title}
-            </Btn>
-          )}
-        </div>
-        {rows}
-      </div>
-    );
+    title = 'In attesa';
+    sub = lockReasons(s, cp)[0] ?? 'Questo percorso riparte quando il checkpoint precedente è raggiunto.';
+    tone = 'wait';
+    cta = blocker
+      ? {
+          label: `Vai a: ${blocker.title}`,
+          run: () => {
+            setActiveDest(blocker.destId);
+            ui.openCp(blocker.id);
+          },
+        }
+      : { label: 'Vedi il percorso', run: () => ui.go({ k: 'dest' }) };
+  } else if (act?.status === 'blocked') {
+    title = 'Ricalcola la rotta';
+    sub = 'Un\'azione è bloccata: correggi la direzione, non la destinazione.';
+    tone = 'warn';
+    rows = openActions(cp).slice(0, 3);
+    cta = { label: 'Ricalcola percorso', run: () => ui.modal({ k: 'recalc', cpId: cp.id, actionId: act.id }) };
+  } else if (p && p.complete && p.total > 0) {
+    title = 'Checkpoint pronto';
+    sub = 'I criteri sono verificati. Confermalo per avanzare sulla rotta.';
+    tone = 'ok';
+    rows = openActions(cp).slice(0, 3);
+    cta = { label: 'Conferma checkpoint', run: () => ui.modal({ k: 'done', cpId: cp.id }) };
+  } else if (act) {
+    rows = openActions(cp).slice(0, 3);
+    cta = {
+      label: 'Continua',
+      run: () => {
+        if (act.status === 'todo') startAction(cp.id, act.id);
+        ui.focus();
+      },
+    };
+  } else {
+    title = 'Nessuna azione aperta';
+    sub = `Il checkpoint non è raggiunto finché i criteri non sono verificati: ${p?.met ?? 0} di ${p?.total ?? 0}.`;
+    cta = { label: 'Aggiungi un\'azione', run: () => ui.modal({ k: 'edit-cp', cpId: cp.id }) };
   }
 
+  const idx = cp ? list.findIndex((c) => c.id === cp.id) : -1;
   const doing = act?.status === 'doing';
   const blocked = act?.status === 'blocked';
 
   return (
     <div className="home">
-      {p.complete && p.total > 0 && (
-        <div className="banner ok">
-          <div>
-            <strong>Tutti i criteri sono verificati.</strong>
-            <span> Conferma che il checkpoint è raggiunto.</span>
-          </div>
-          <Btn kind="primary" small onClick={() => ui.modal({ k: 'done', cpId: cp.id })}>
-            Conferma
-          </Btn>
-        </div>
-      )}
-      {just && (
-        <div className="banner">
-          <div>
-            <strong>Azione completata.</strong>
-            <span> Ha prodotto un risultato misurabile?</span>
-          </div>
-          <div className="btn-inline">
-            <Btn
-              kind="tint"
-              small
-              onClick={() => {
-                setJust(null);
-                ui.modal({ k: 'result', cpId: cp.id });
-              }}
-            >
-              Registra
-            </Btn>
-            <Btn kind="ghost" small onClick={() => setJust(null)}>
-              Più tardi
-            </Btn>
-          </div>
-        </div>
-      )}
-
-      <div className={`turn${blocked ? ' blocked' : ''}`}>
-        <div className="turn-tag">
-          <IconTurn size={16} /> PROSSIMA SVOLTA
-        </div>
-        {act ? (
-          <>
-            <p className="turn-text">{act.text}</p>
-            <p className="turn-meta">
-              {doing && act.startedAt ? `In corso da ${fmtDur(ui.now - act.startedAt)} · ` : ''}
-              {blocked ? `Bloccata: ${act.blockedReason ?? 'senza motivo'} · ` : ''}
-              {cp.title}
-            </p>
-            {blocked ? (
-              <div className="btn-grid">
-                <Btn kind="primary" full icon={<IconRecalc size={18} />} onClick={() => ui.modal({ k: 'recalc', cpId: cp.id, actionId: act.id })}>
-                  Ricalcola percorso
-                </Btn>
-                <Btn full onClick={() => unblockAction(cp.id, act.id)}>
-                  Sblocca
-                </Btn>
-              </div>
-            ) : (
-              <>
-                <div className="btn-grid">
-                  {doing ? (
-                    <>
-                      <Btn
-                        kind="primary"
-                        full
-                        icon={<IconCheck size={18} />}
-                        onClick={() => {
-                          completeAction(cp.id, act.id);
-                          setJust(act.id);
-                        }}
-                      >
-                        Completato
-                      </Btn>
-                      <Btn full icon={<IconFocus size={18} />} onClick={ui.focus}>
-                        Focus
-                      </Btn>
-                    </>
-                  ) : (
-                    <>
-                      <Btn kind="primary" full icon={<IconPlay size={16} />} onClick={() => startAction(cp.id, act.id)}>
-                        Inizia
-                      </Btn>
-                      <Btn
-                        full
-                        icon={<IconCheck size={18} />}
-                        onClick={() => {
-                          completeAction(cp.id, act.id);
-                          setJust(act.id);
-                        }}
-                      >
-                        Completato
-                      </Btn>
-                    </>
-                  )}
-                </div>
-                <div className="btn-grid">
-                  <Btn full icon={<IconBlock size={17} />} onClick={() => ui.modal({ k: 'block', cpId: cp.id, actionId: act.id })}>
-                    Bloccato
-                  </Btn>
-                  <Btn full icon={<IconResult size={17} />} onClick={() => ui.modal({ k: 'result', cpId: cp.id })}>
-                    Registra risultato
-                  </Btn>
-                </div>
-                <Btn kind="ghost" full icon={<IconRecalc size={17} />} onClick={() => ui.modal({ k: 'recalc', cpId: cp.id, actionId: act.id })}>
-                  Ricalcola percorso
-                </Btn>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="turn-text">Nessuna azione aperta.</p>
-            <p className="turn-meta">Il checkpoint non è raggiunto finché i criteri non sono verificati: {p.met} di {p.total}.</p>
-            <div className="btn-grid">
-              <Btn kind="primary" full icon={<IconPlus size={18} />} onClick={() => ui.modal({ k: 'edit-cp', cpId: cp.id })}>
-                Aggiungi azione
+      <section className={`lane ${tone}`}>
+        {just && (
+          <div className="banner">
+            <div>
+              <strong>Azione completata.</strong>
+              <span> Ha prodotto un risultato misurabile?</span>
+            </div>
+            <div className="btn-inline">
+              <Btn
+                kind="tint"
+                small
+                onClick={() => {
+                  setJust(null);
+                  if (cp) ui.modal({ k: 'result', cpId: cp.id });
+                }}
+              >
+                Registra
               </Btn>
-              <Btn full icon={<IconResult size={17} />} onClick={() => ui.modal({ k: 'result', cpId: cp.id })}>
-                Registra risultato
+              <Btn kind="ghost" small onClick={() => setJust(null)}>
+                Dopo
               </Btn>
             </div>
-            <Btn kind="ghost" full icon={<IconRecalc size={17} />} onClick={() => ui.modal({ k: 'recalc', cpId: cp.id })}>
-              Ricalcola percorso
-            </Btn>
-          </>
+          </div>
         )}
-      </div>
-      {rows}
+        <div className="lane-head">
+          <div className="lane-tile" aria-hidden="true">
+            {tone === 'ok' ? <IconCheck size={30} /> : tone === 'warn' ? <IconRecalc size={30} /> : tone === 'wait' ? <IconLock size={28} /> : <IconFocus size={32} />}
+          </div>
+          <div className="lane-txt">
+            <h2>{title}</h2>
+            <p>{sub}</p>
+          </div>
+        </div>
+        {rows.length > 0 && cp && (
+          <ol className="lane-list">
+            {rows.map((a, i) => (
+              <li key={a.id} className={a.status}>
+                <button
+                  type="button"
+                  className={`box ${a.status}`}
+                  aria-label={a.status === 'blocked' ? 'Azione bloccata' : 'Segna come completata'}
+                  onClick={() => (a.status === 'blocked' ? ui.modal({ k: 'recalc', cpId: cp.id, actionId: a.id }) : finish(cp.id, a.id))}
+                >
+                  {a.status === 'blocked' && <IconBlock size={13} />}
+                  {a.status === 'doing' && <IconPlay size={10} />}
+                </button>
+                <button type="button" className="lane-t" onClick={() => ui.openCp(cp.id)}>
+                  <b>{i + 1}.</b> {actionTitle(a)}
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
+        <button type="button" className="cta" onClick={cta.run}>
+          <IconNav size={26} />
+          <span>{cta.label}</span>
+        </button>
+      </section>
+
+      {cp && status === 'active' && (
+        <section className="lane-more">
+          <div className="more-h">
+            <IconTurn size={15} /> PROSSIMA SVOLTA
+          </div>
+          {act ? (
+            <div className="turn-card">
+              <p className="turn-text">{act.text}</p>
+              <p className="turn-meta">
+                {doing && act.startedAt ? `In corso da ${fmtDur(ui.now - act.startedAt)} · ` : ''}
+                {blocked ? `Bloccata: ${act.blockedReason ?? 'senza motivo'} · ` : ''}
+                {cp.title}
+              </p>
+              <div className="btn-grid">
+                <Btn full icon={<IconPlay size={15} />} onClick={() => startAction(cp.id, act.id)} disabled={doing || blocked}>
+                  Inizia
+                </Btn>
+                <Btn full icon={<IconCheck size={17} />} onClick={() => finish(cp.id, act.id)} disabled={blocked}>
+                  Completato
+                </Btn>
+                {blocked ? (
+                  <Btn full icon={<IconBlock size={16} />} onClick={() => unblockAction(cp.id, act.id)}>
+                    Sblocca
+                  </Btn>
+                ) : (
+                  <Btn full icon={<IconBlock size={16} />} onClick={() => ui.modal({ k: 'block', cpId: cp.id, actionId: act.id })}>
+                    Bloccato
+                  </Btn>
+                )}
+                <Btn full icon={<IconResult size={16} />} onClick={() => ui.modal({ k: 'result', cpId: cp.id })}>
+                  Registra risultato
+                </Btn>
+              </div>
+              <Btn kind="ghost" full icon={<IconRecalc size={16} />} onClick={() => ui.modal({ k: 'recalc', cpId: cp.id, actionId: act.id })}>
+                Ricalcola percorso
+              </Btn>
+            </div>
+          ) : (
+            <div className="turn-card">
+              <div className="btn-grid">
+                <Btn full icon={<IconResult size={16} />} onClick={() => ui.modal({ k: 'result', cpId: cp.id })}>
+                  Registra risultato
+                </Btn>
+                <Btn full icon={<IconRecalc size={16} />} onClick={() => ui.modal({ k: 'recalc', cpId: cp.id })}>
+                  Ricalcola percorso
+                </Btn>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {cp && (
+        <div className="ctx-rows">
+          <Row onClick={() => ui.go({ k: 'dest' })} chevron>
+            <div>
+              <div className="lab">Dove sei</div>
+              <div className="val">{whereText(s, dest)}</div>
+              <Bar f={list.filter((c) => c.doneAt).length / Math.max(1, list.length) + (p ? p.f / Math.max(1, list.length) : 0)} />
+            </div>
+          </Row>
+          <Row onClick={() => ui.go({ k: 'dest' })} chevron>
+            <div>
+              <div className="lab">Dove stai andando</div>
+              <div className="val">
+                {dest.name} <span className="soft">— {dest.goal}</span>
+              </div>
+            </div>
+          </Row>
+          <Row onClick={() => ui.openCp(cp.id)} chevron>
+            <div>
+              <div className="lab">Prossimo checkpoint</div>
+              <div className="val">
+                {idx + 1}. {cp.title}
+              </div>
+            </div>
+          </Row>
+        </div>
+      )}
     </div>
   );
 }

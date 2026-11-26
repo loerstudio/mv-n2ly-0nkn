@@ -286,7 +286,7 @@ export function DoneModal({ cpId }: { cpId: string }) {
           ui.toast('Checkpoint raggiunto. La rotta avanza.');
           ui.modal(null);
           ui.go({ k: 'home' });
-          ui.detent('half');
+          ui.detent('base');
         }}
       >
         Sì, è raggiunto
@@ -350,7 +350,7 @@ export function RecalcModal({ cpId, actionId }: { cpId: string; actionId?: strin
     ui.toast('Percorso ricalcolato. Destinazione invariata.');
     ui.modal(null);
     ui.go({ k: 'home' });
-    ui.detent('half');
+    ui.detent('base');
   };
 
   const titles = ['', 'Cosa è successo', 'Quale ostacolo', 'Le evidenze', 'Correzione proposta'];

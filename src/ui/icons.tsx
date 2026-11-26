@@ -191,3 +191,107 @@ export const IconShare = (p: IP) => (
     <path d="M6 12v7h12v-7" />
   </Svg>
 );
+
+export const IconNav = (p: IP) => (
+  <Svg {...p} sw={1.6}>
+    <path d="M3.6 11.2L20.4 3.6l-7.6 16.8-2.2-7.2z" fill="currentColor" />
+  </Svg>
+);
+export const IconSliders = (p: IP) => (
+  <Svg {...p}>
+    <path d="M4 7h8.5M17.5 7H20M4 17h2.5M11.5 17H20" />
+    <circle cx="15" cy="7" r="2.4" />
+    <circle cx="9" cy="17" r="2.4" />
+  </Svg>
+);
+export const IconWarn = (p: IP) => (
+  <Svg {...p}>
+    <path d="M12 4.2l9 15.6H3z" />
+    <path d="M12 10v4.4M12 17.2v.2" />
+  </Svg>
+);
+export const IconDumbbell = (p: IP) => (
+  <Svg {...p}>
+    <path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11" />
+  </Svg>
+);
+export const IconHeart = (p: IP) => (
+  <Svg {...p}>
+    <path d="M12 19.6s-7.2-4.4-7.2-9.9a4.1 4.1 0 0 1 7.2-2.6 4.1 4.1 0 0 1 7.2 2.6c0 5.5-7.2 9.9-7.2 9.9z" />
+  </Svg>
+);
+export const IconPlane = (p: IP) => (
+  <Svg {...p} sw={1.8}>
+    <path d="M21 15.2l-8.2-4.7V5.6a1.6 1.6 0 0 0-3.2 0v4.9L1.4 15.2v1.6l8.2-2.1v3.5l-2.2 1.6v1.4l4.4-1.1 4.4 1.1v-1.4l-2.2-1.6v-3.5l8.2 2.1z" transform="translate(0 -2.2) rotate(0)" />
+  </Svg>
+);
+export const IconRocket = (p: IP) => (
+  <Svg {...p} sw={1.8}>
+    <path d="M14.2 4.2c2.7-.6 5 -.4 5.6-.2.2.6.4 2.9-.2 5.6-.8 3.5-3.6 6-6.8 7.2l-4.3-4.3c1.2-3.200 3.700-6 7.700-8.300z" transform="translate(-0.4 0.4)" />
+    <circle cx="15" cy="9" r="1.4" />
+    <path d="M7.8 13.6c-2 .2-3.200 1.600-3.600 4.200 2.600-.4 4-1.600 4.200-3.600M6.300 17.700l-1.100 1.100" />
+  </Svg>
+);
+export const IconUsers = (p: IP) => (
+  <Svg {...p} sw={1.8}>
+    <circle cx="9" cy="8.2" r="3.1" />
+    <path d="M3 19c0-3.300 2.600-5.400 6-5.400s6 2.100 6 5.400" />
+    <circle cx="17.2" cy="9.2" r="2.4" />
+    <path d="M16.600 13.800c2.500.2 4.400 2 4.400 4.700" />
+  </Svg>
+);
+export const IconChart = (p: IP) => (
+  <Svg {...p} sw={2.2}>
+    <path d="M5 19v-5M11 19v-8M17 19v-11" />
+    <path d="M14.500 5.200h3.600v3.600" strokeWidth="1.800" />
+  </Svg>
+);
+export const IconWallet = (p: IP) => (
+  <Svg {...p}>
+    <path d="M4 8.500A2.500 2.500 0 0 1 6.500 6H18v13H6.500A2.500 2.500 0 0 1 4 16.500z" />
+    <path d="M18 10.500h-3a1.500 1.500 0 0 0 0 3h3" />
+  </Svg>
+);
+export const IconStar = (p: IP) => (
+  <Svg {...p}>
+    <path d="M12 4.400l2.400 5 5.500.7-4 3.800 1 5.400-4.900-2.700-4.900 2.700 1-5.400-4-3.800 5.500-.7z" />
+  </Svg>
+);
+export const IconHome = (p: IP) => (
+  <Svg {...p}>
+    <path d="M4 11l8-6.500L20 11v8.500h-5.500V14h-5v5.500H4z" />
+  </Svg>
+);
+export const IconPin = (p: IP) => (
+  <Svg {...p}>
+    <path d="M12 20.500s6-5.500 6-10.200a6 6 0 0 0-12 0c0 4.700 6 10.200 6 10.200z" />
+    <circle cx="12" cy="10.200" r="2.200" />
+  </Svg>
+);
+
+import type { DestIcon } from '../lib/types';
+export function destIcon(k: DestIcon | undefined, size = 16) {
+  switch (k) {
+    case 'dumbbell':
+      return <IconDumbbell size={size} />;
+    case 'heart':
+      return <IconHeart size={size} />;
+    case 'plane':
+      return <IconPlane size={size} />;
+    case 'rocket':
+      return <IconRocket size={size} />;
+    case 'users':
+      return <IconUsers size={size} />;
+    case 'wallet':
+      return <IconWallet size={size} />;
+    case 'star':
+      return <IconStar size={size} />;
+    case 'home':
+      return <IconHome size={size} />;
+    case 'flag':
+      return <IconFlag size={size} />;
+    default:
+      return <IconFocus size={size} />;
+  }
+}
+export const DEST_ICONS: DestIcon[] = ['target', 'dumbbell', 'heart', 'plane', 'rocket', 'users', 'wallet', 'star', 'home', 'flag'];

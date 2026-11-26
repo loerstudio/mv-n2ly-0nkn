@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { cpById, cpsOf, currentCp, nextAction } from '../lib/engine';
+import { cpById, cpsOf } from '../lib/engine';
 import { notify } from '../lib/platform';
 import { dayKey } from '../lib/util';
 import { activeDest, getState, setActiveDest, useMeta, useStore } from '../store/store';
@@ -12,7 +12,7 @@ import { MapView, type MapHandle } from './MapView';
 import { DestView, HistoryView, NumbersView, SettingsView, ZonesView } from './Panels';
 import { Search } from './Search';
 import { Welcome } from './Welcome';
-import { IconBack, IconChevron, IconFocus, IconGauge, IconGear, IconHistory, IconLayers, IconLocate, IconMinus, IconMore, IconPlus, IconSearch, IconZone } from './icons';
+import { IconBack, IconFocus, IconGauge, IconGear, IconHistory, IconLayers, IconLocate, IconMinus, IconNav, IconPlus, IconSearch, IconSliders, IconZone, destIcon } from './icons';
 
 function useMedia(q: string) {
   const [m, setM] = useState(() => window.matchMedia(q).matches);
@@ -34,7 +34,7 @@ function InstallTip() {
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
   if (hide || standalone || !ios) return null;
   return (
-    <div className="banner">
+    <div className="banner tip">
       <div>
         <strong>Installa l'app.</strong>
         <span> In Safari tocca Condividi, poi «Aggiungi alla schermata Home»: si apre a schermo intero e funziona offline.</span>
@@ -55,18 +55,23 @@ function InstallTip() {
 export function App() {
   const s = useStore();
   const meta = useMeta();
-  const wide = useMedia('(min-width: 700px)');
+
+  const wide = useMedia('(min-width: 900px)');
   const [vh, setVh] = useState(window.innerHeight);
   const [stack, setStack] = useState<View[]>([{ k: 'home' }]);
-  const [detent, setDetentState] = useState<Detent>('half');
+  const [detent, setDetentState] = useState<Detent>('base');
   const [modal, setModal] = useState<ModalSpec | null>(null);
   const [focus, setFocus] = useState(false);
   const [searching, setSearching] = useState(false);
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState<{ id: number; msg: string } | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [laneH, setLaneH] = useState(300);
+  const [topH, setTopH] = useState(112);
   const map = useRef<MapHandle>(null);
   const sheet = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const topbar = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y0: number; h0: number; t0: number; moved: boolean } | null>(null);
 
   useEffect(() => {
@@ -83,6 +88,18 @@ export function App() {
       document.removeEventListener('visibilitychange', vis);
     };
   }, []);
+
+  // the free map area starts under the header and the chips
+  const ready = meta.ready && s.destinations.length > 0;
+  useEffect(() => {
+    const el = topbar.current;
+    if (!el) return;
+    const m = () => setTopH(Math.round(el.getBoundingClientRect().bottom) + 8);
+    m();
+    const ro = new ResizeObserver(m);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ready]);
 
   // daily reminders, while the app is open
   useEffect(() => {
@@ -108,17 +125,31 @@ export function App() {
     return () => clearInterval(id);
   }, []);
 
-  const HEIGHT: Record<Detent, number> = useMemo(() => ({ peek: 266, half: Math.max(360, Math.round(vh * 0.56)), full: vh - 64 }), [vh]);
+  const top = stack[stack.length - 1];
+
+  // natural height of the compact "Resta nella corsia" block decides the base detent
+  useEffect(() => {
+    const el = body.current?.querySelector('.lane');
+    if (!el) return;
+    const m = () => setLaneH(Math.round((el as HTMLElement).offsetHeight));
+    m();
+    const ro = new ResizeObserver(m);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [top.k, ready, s]);
+
+  const HEIGHT: Record<Detent, number> = useMemo(() => {
+    const base = Math.min(Math.max(laneH + 44, 250), Math.round(vh * 0.62));
+    return { min: 96, base, half: Math.max(base + 60, Math.round(vh * 0.64)), full: Math.max(base + 60, vh - topH - 6) };
+  }, [laneH, vh, topH]);
 
   const showToast = useCallback((msg: string) => {
-    const id = Date.now();
-    setToast({ id, msg });
-    setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), 2800);
+    setToast({ id: Date.now(), msg });
   }, []);
   useEffect(() => {
     if (!toast) return;
     const id = toast.id;
-    const t = setTimeout(() => setToast((x) => (x && x.id === id ? null : x)), 4200);
+    const t = setTimeout(() => setToast((x) => (x && x.id === id ? null : x)), 3600);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -129,32 +160,44 @@ export function App() {
     if (!cp) return;
     if (cp.destId !== getState().activeDestId) setActiveDest(cp.destId);
     setStack([{ k: 'home' }, { k: 'cp', id }]);
-    setDetentState((d) => (d === 'peek' ? 'half' : d));
+    setDetentState('half');
     setTimeout(() => {
       const list = cpsOf(getState(), cp.destId);
       map.current?.focusStop(list.findIndex((c) => c.id === id) + 1);
     }, 80);
   }, []);
 
-  const go = useCallback((v: View) => {
-    if (v.k === 'home') {
-      setStack([{ k: 'home' }]);
-      return;
-    }
-    if (v.k === 'cp') {
-      openCp(v.id);
-      return;
-    }
-    setStack((st) => (st[st.length - 1].k === v.k ? [...st.slice(0, -1), v] : [...st, v]));
-    setDetentState('full');
-  }, [openCp]);
-
-  const back = useCallback(() => setStack((st) => (st.length > 1 ? st.slice(0, -1) : st)), []);
-
-  const ui: UI = useMemo(
-    () => ({ go, back, modal: setModal, toast: showToast, focus: () => setFocus(true), openCp, detent: setDetent, wide, now }),
-    [go, back, showToast, openCp, setDetent, wide, now],
+  const go = useCallback(
+    (v: View) => {
+      if (v.k === 'home') {
+        setStack([{ k: 'home' }]);
+        return;
+      }
+      if (v.k === 'cp') {
+        openCp(v.id);
+        return;
+      }
+      setStack([{ k: 'home' }, v]);
+      setDetentState('full');
+    },
+    [openCp],
   );
+
+  const back = useCallback(() => {
+    setStack((st) => (st.length > 1 ? st.slice(0, -1) : st));
+  }, []);
+
+  // closing a detail returns the sheet to its compact state and the map to its overview
+  const prevView = useRef(top.k);
+  useEffect(() => {
+    if (top.k === 'home') {
+      setDetentState((d) => (d === 'half' || d === 'full' ? 'base' : d));
+      if (prevView.current !== 'home') setTimeout(() => map.current?.fit(true), 140);
+    }
+    prevView.current = top.k;
+  }, [top.k]);
+
+  const ui: UI = useMemo(() => ({ go, back, modal: setModal, toast: showToast, focus: () => setFocus(true), openCp, detent: setDetent, wide, now }), [go, back, showToast, openCp, setDetent, wide, now]);
 
   // keyboard
   useEffect(() => {
@@ -172,7 +215,7 @@ export function App() {
         setSearching(true);
       } else if (e.key === '+' || e.key === '=') map.current?.zoomBy(1.35);
       else if (e.key === '-') map.current?.zoomBy(1 / 1.35);
-      else if (e.key === '0') map.current?.recenter(true);
+      else if (e.key === '0') map.current?.toggle();
       else if (e.key === 'Escape') {
         setMenu(false);
         if (stack.length > 1) back();
@@ -182,36 +225,38 @@ export function App() {
     return () => window.removeEventListener('keydown', h);
   }, [modal, focus, searching, stack.length, back]);
 
-  // sheet dragging (phones)
+  // sheet dragging (phones and tablets in portrait)
+  const hpx = (h: number) => `calc(${h}px + var(--safe-b))`;
   const onGrabDown = (e: React.PointerEvent) => {
     if (wide || (e.target as HTMLElement).closest('button')) return;
     drag.current = { y0: e.clientY, h0: HEIGHT[detent], t0: e.timeStamp, moved: false };
-    sheet.current && (sheet.current.style.transition = 'none');
+    if (sheet.current) sheet.current.style.transition = 'none';
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
   const onGrabMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d || !sheet.current) return;
     d.moved = true;
-    const h = Math.min(HEIGHT.full, Math.max(HEIGHT.peek, d.h0 + (d.y0 - e.clientY)));
-    sheet.current.style.height = `${h}px`;
+    const h = Math.min(HEIGHT.full, Math.max(HEIGHT.min, d.h0 + (d.y0 - e.clientY)));
+    sheet.current.style.height = hpx(h);
   };
   const onGrabUp = (e: React.PointerEvent) => {
     const d = drag.current;
     drag.current = null;
     if (!d || !sheet.current) return;
     sheet.current.style.transition = '';
+    const order: Detent[] = ['min', 'base', 'half', 'full'];
     if (!d.moved) {
-      setDetentState(detent === 'peek' ? 'half' : detent === 'half' ? 'full' : 'half');
-      sheet.current.style.height = '';
+      const next = detent === 'min' ? 'base' : detent === 'base' ? 'full' : 'base';
+      setDetentState(next);
+      sheet.current.style.height = hpx(HEIGHT[next]);
       return;
     }
     const v = (d.y0 - e.clientY) / Math.max(1, e.timeStamp - d.t0);
-    const h = Math.min(HEIGHT.full, Math.max(HEIGHT.peek, d.h0 + (d.y0 - e.clientY))) + v * 180;
-    const order: Detent[] = ['peek', 'half', 'full'];
-    const target = order.reduce((best, k) => (Math.abs(HEIGHT[k] - h) < Math.abs(HEIGHT[best] - h) ? k : best), 'half' as Detent);
+    const h = Math.min(HEIGHT.full, Math.max(HEIGHT.min, d.h0 + (d.y0 - e.clientY))) + v * 160;
+    const target = order.reduce((best, k) => (Math.abs(HEIGHT[k] - h) < Math.abs(HEIGHT[best] - h) ? k : best), 'base' as Detent);
     setDetentState(target);
-    sheet.current.style.height = `${HEIGHT[target]}px`;
+    sheet.current.style.height = hpx(HEIGHT[target]);
   };
 
   if (!meta.ready) {
@@ -240,12 +285,9 @@ export function App() {
   }
 
   const dest = activeDest(s);
-  const top = stack[stack.length - 1];
   const depth = stack.length;
   const sheetH = wide ? 0 : HEIGHT[detent];
-  const insets = wide ? { l: 14 + 404 + 14, t: 64, r: 74, b: 0 } : { l: 0, t: 74, r: 58, b: Math.min(sheetH, vh * 0.58) };
-  void currentCp;
-  void nextAction;
+  const insets = wide ? { l: 20 + 432 + 16, t: topH, r: 0, b: 0 } : { l: 0, t: topH, r: 0, b: Math.min(sheetH, vh * 0.64) + 4 };
 
   let content: React.ReactNode;
   switch (top.k) {
@@ -284,42 +326,53 @@ export function App() {
     { k: 'settings', l: 'Impostazioni e backup', icon: <IconGear size={18} /> },
   ];
 
-  const collapsed = wide && detent === 'peek';
+  const switchTo = (id: string) => {
+    setActiveDest(id);
+    setStack([{ k: 'home' }]);
+    setDetentState('base');
+    setMenu(false);
+  };
 
   return (
     <UICtx.Provider value={ui}>
       <div className={`app${wide ? ' wide' : ''}`} onPointerDown={() => menu && setMenu(false)}>
-        <MapView ref={map} s={s} insets={insets} onCp={openCp} onZone={(id) => setModal({ k: 'zone', id })} onYou={() => map.current?.recenter(true)} />
+        <MapView ref={map} s={s} insets={insets} onCp={openCp} onZone={(id) => setModal({ k: 'zone', id })} onYou={() => map.current?.toggle()} />
 
-        <button className="dest-chip glass" style={wide ? { left: 14 + 404 + 14 } : undefined} onClick={() => go({ k: 'dest' })} aria-label={`Destinazione: ${dest.name}`}>
-          {dest.tag.toUpperCase() !== dest.name.toUpperCase() && <span className="dc-tag">{dest.tag}</span>}
-          <span className="dc-name">{dest.name}</span>
-          <IconChevron size={14} />
-        </button>
-
-        <div className="ctrls glass">
-          <button onClick={() => setFocus(true)} aria-label="Modalità Focus" title="Focus">
-            <IconFocus size={21} />
-          </button>
-          <button onClick={() => setSearching(true)} aria-label="Cerca" title="Cerca (⌘K)">
-            <IconSearch size={21} />
-          </button>
-          <button onClick={() => map.current?.recenter(true)} aria-label="Torna a «Sei qui»" title="Sei qui">
-            <IconLocate size={21} />
-          </button>
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setMenu((m) => !m)}
-            aria-label="Menu"
-            aria-expanded={menu}
-            title="Menu"
-          >
-            <IconMore size={21} />
-          </button>
+        <div className="topbar" ref={topbar}>
+          <div className="brand-row">
+            <div className="logo-tile" aria-hidden="true">
+              <IconNav size={24} />
+            </div>
+            <div className="brand-text">
+              <b>ROAD</b>
+              <span>Your Life Navigation</span>
+            </div>
+            <button className="focus-pill" onClick={() => setFocus(true)} aria-label="Modalità Focus">
+              <IconFocus size={19} />
+              <span>Focus Mode</span>
+            </button>
+            <button className="sq-btn" onClick={() => setSearching(true)} aria-label="Cerca" title="Cerca (⌘K)">
+              <IconSearch size={20} />
+            </button>
+            <button className="sq-btn" onPointerDown={(e) => e.stopPropagation()} onClick={() => setMenu((m) => !m)} aria-label="Menu" aria-expanded={menu} title="Menu">
+              <IconSliders size={20} />
+            </button>
+          </div>
+          <nav className="dchips" aria-label="Destinazioni">
+            {s.destinations.map((d) => (
+              <button key={d.id} className={`dchip${d.id === dest.id ? ' on' : ''}`} onClick={() => switchTo(d.id)} aria-pressed={d.id === dest.id}>
+                {destIcon(d.icon, 15)}
+                <span>{d.short ?? d.name}</span>
+              </button>
+            ))}
+            <button className="dchip more" onClick={() => go({ k: 'dest' })} aria-label="Tutte le destinazioni">
+              <span>•••</span>
+            </button>
+          </nav>
         </div>
 
         {menu && (
-          <div className="menu glass" role="menu" onPointerDown={(e) => e.stopPropagation()}>
+          <div className="menu glass" role="menu" onPointerDown={(e) => e.stopPropagation()} style={{ top: topH - 50 }}>
             {menuItems.map((m) => (
               <button
                 key={m.k}
@@ -336,49 +389,39 @@ export function App() {
           </div>
         )}
 
-        {wide && (
-          <div className="zoomc glass">
-            <button onClick={() => map.current?.zoomBy(1.35)} aria-label="Ingrandisci">
-              <IconPlus size={20} />
-            </button>
-            <button onClick={() => map.current?.zoomBy(1 / 1.35)} aria-label="Riduci">
-              <IconMinus size={20} />
+        <div className="mapctl" style={wide ? undefined : { bottom: `calc(${sheetH + 14}px + var(--safe-b))` }}>
+          <div className="mapctl-grp">
+            <button onClick={() => map.current?.toggle()} aria-label="Sei qui / panoramica" title="Sei qui">
+              <IconLocate size={20} />
             </button>
           </div>
-        )}
+          {wide && (
+            <div className="mapctl-grp">
+              <button onClick={() => map.current?.zoomBy(1.35)} aria-label="Ingrandisci">
+                <IconPlus size={19} />
+              </button>
+              <button onClick={() => map.current?.zoomBy(1 / 1.35)} aria-label="Riduci">
+                <IconMinus size={19} />
+              </button>
+            </div>
+          )}
+        </div>
 
-        <div
-          ref={sheet}
-          className={`sheet glass ${detent}${wide ? ' wide' : ''}${collapsed ? ' collapsed' : ''}`}
-          style={wide ? undefined : { height: sheetH }}
-          role="region"
-          aria-label="Pannello"
-        >
+        <div ref={sheet} className={`sheet ${detent}${wide ? ' wide' : ''}`} style={wide ? { top: topH + 56 } : { height: hpx(sheetH) }} role="region" aria-label="Pannello">
           <div className="sheet-top" onPointerDown={onGrabDown} onPointerMove={onGrabMove} onPointerUp={onGrabUp} onPointerCancel={onGrabUp}>
             {!wide && <div className="grab-bar" />}
-            <header className="sheet-h">
-              {depth > 1 ? (
+            {depth > 1 && (
+              <header className="sheet-h">
                 <button className="back" onClick={back} aria-label="Indietro">
                   <IconBack size={18} />
                   <span>Indietro</span>
                 </button>
-              ) : (
-                <div className="brandline">
-                  <i className="brand-mark small" />
-                  <span>MATTANA VITA</span>
-                </div>
-              )}
-              <div className="sheet-title">{top.k === 'home' ? '' : TITLES[top.k]}</div>
-              {wide ? (
-                <button className="icon-btn" onClick={() => setDetent(detent === 'peek' ? 'half' : 'peek')} aria-label={collapsed ? 'Espandi il pannello' : 'Riduci il pannello'}>
-                  <IconChevron size={16} />
-                </button>
-              ) : (
-                <span className="tagline">One destination. Stay on route.</span>
-              )}
-            </header>
+                <div className="sheet-title">{TITLES[top.k]}</div>
+                <span className="sheet-sp" />
+              </header>
+            )}
           </div>
-          <div className="sheet-body" key={top.k + (top.k === 'cp' ? top.id : '')}>
+          <div className="sheet-body" ref={body} key={top.k + (top.k === 'cp' ? top.id : '')}>
             {content}
           </div>
         </div>
