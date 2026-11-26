@@ -6,7 +6,7 @@ export interface P {
 }
 
 /** the terrain is much larger than the route so the map never ends while you pan */
-export const TERRAIN = { x0: -900, y0: -900, w: 2500, h: 2700 };
+export const TERRAIN = { x0: -1400, y0: -1500, w: 3600, h: 4000 };
 
 export interface Route {
   /** stops[0] = start, stops[1..n] = checkpoints (the last one carries the flag) */
@@ -274,7 +274,7 @@ export function buildTerrain(): Terrain {
 
   // hills: scattered soft peaks (deterministic)
   const peaks: { x: number; y: number; sx: number; sy: number; a: number }[] = [];
-  const NP = 30;
+  const NP = Math.round((30 * w * h) / (2500 * 2700));
   for (let i = 0; i < NP; i += 1) peaks.push({ x: x0 + 200 + rand() * (w - 400), y: y0 + 200 + rand() * (h - 400), sx: 90 + rand() * 120, sy: 80 + rand() * 105, a: 0.55 + rand() * 0.6 });
   const ph = [rand() * 6, rand() * 6, rand() * 6];
   const hillF = (x: number, y: number) => {
@@ -332,7 +332,7 @@ export function buildTerrain(): Terrain {
 
   // faint roads
   const roads: Terrain['roads'] = [];
-  for (let k = 0; k < 16; k += 1) {
+  for (let k = 0; k < 26; k += 1) {
     const pts: P[] = [];
     const sx = x0 + 200 + rand() * (w - 400);
     const sy = y0 + 200 + rand() * (h - 400);

@@ -56,8 +56,10 @@ export function App() {
   const s = useStore();
   const meta = useMeta();
 
-  const wide = useMedia('(min-width: 900px)');
+  // side panel on desktops, iPads in landscape and phones turned sideways; bottom sheet otherwise
+  const wide = useMedia('(min-width: 900px), (orientation: landscape) and (min-width: 640px)');
   const [vh, setVh] = useState(window.innerHeight);
+  const [vw, setVw] = useState(window.innerWidth);
   const [stack, setStack] = useState<View[]>([{ k: 'home' }]);
   const [detent, setDetentState] = useState<Detent>('base');
   const [modal, setModal] = useState<ModalSpec | null>(null);
@@ -75,7 +77,10 @@ export function App() {
   const drag = useRef<{ y0: number; h0: number; t0: number; moved: boolean } | null>(null);
 
   useEffect(() => {
-    const on = () => setVh(window.innerHeight);
+    const on = () => {
+      setVh(window.innerHeight);
+      setVw(window.innerWidth);
+    };
     window.addEventListener('resize', on);
     return () => window.removeEventListener('resize', on);
   }, []);
@@ -126,6 +131,16 @@ export function App() {
   }, []);
 
   const top = stack[stack.length - 1];
+
+  // a #c=CODE link was opened on this device
+  useEffect(() => {
+    const on = (e: Event) => {
+      const r = (e as CustomEvent<string>).detail;
+      setToast({ id: Date.now(), msg: r === 'linked' ? 'Dispositivo collegato' : r === 'invalid' ? 'Codice non valido o già usato' : 'Non sono riuscito a collegare: riprova' });
+    };
+    window.addEventListener('mv-link', on);
+    return () => window.removeEventListener('mv-link', on);
+  }, []);
 
   // natural height of the compact "Resta nella corsia" block decides the base detent
   useEffect(() => {
@@ -287,7 +302,8 @@ export function App() {
   const dest = activeDest(s);
   const depth = stack.length;
   const sheetH = wide ? 0 : HEIGHT[detent];
-  const insets = wide ? { l: 20 + 432 + 16, t: topH, r: 0, b: 0 } : { l: 0, t: topH, r: 0, b: Math.min(sheetH, vh * 0.64) + 4 };
+  const panelW = Math.min(432, Math.round(vw * 0.46));
+  const insets = wide ? { l: 20 + panelW + 16, t: topH, r: 0, b: 0 } : { l: 0, t: topH, r: 0, b: Math.min(sheetH, vh * 0.64) + 4 };
 
   let content: React.ReactNode;
   switch (top.k) {
@@ -407,7 +423,7 @@ export function App() {
           )}
         </div>
 
-        <div ref={sheet} className={`sheet ${detent}${wide ? ' wide' : ''}`} style={wide ? { top: topH + 56 } : { height: hpx(sheetH) }} role="region" aria-label="Pannello">
+        <div ref={sheet} className={`sheet ${detent}${wide ? ' wide' : ''}`} style={wide ? { top: topH + 6, width: panelW } : { height: hpx(sheetH) }} role="region" aria-label="Pannello">
           <div className="sheet-top" onPointerDown={onGrabDown} onPointerMove={onGrabMove} onPointerUp={onGrabUp} onPointerCancel={onGrabUp}>
             {!wide && <div className="grab-bar" />}
             {depth > 1 && (

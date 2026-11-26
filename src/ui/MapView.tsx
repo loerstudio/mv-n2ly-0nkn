@@ -248,7 +248,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ s, insets
   const limits = useCallback(() => {
     const { w, h } = size.current;
     const cover = Math.max(w / TERRAIN.w, h / TERRAIN.h);
-    return { minK: Math.max(cover, fitK() * 0.7), maxK: 3.2 };
+    // never forbid the overview itself, even on a short Safari viewport
+    return { minK: Math.min(Math.max(cover, fitK() * 0.7), fitK()), maxK: 3.2 };
   }, [fitK]);
 
   const clampCam = useCallback(() => {
@@ -351,9 +352,13 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ s, insets
     if (!el) return;
     const measure = () => {
       const r = el.getBoundingClientRect();
+      const changed = Math.abs(r.width - size.current.w) > 1 || Math.abs(r.height - size.current.h) > 1;
       size.current = { w: r.width, h: r.height };
       if (!ready && r.width > 0) {
         setReady(true);
+        fit(false);
+      } else if (changed && !touched.current) {
+        // the browser settled on its real size (toolbars, rotation): show the whole route again
         fit(false);
       } else {
         clampCam();

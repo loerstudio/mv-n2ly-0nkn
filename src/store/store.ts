@@ -15,6 +15,19 @@ let savedAt: number | null = null;
 let version = 0;
 const listeners = new Set<() => void>();
 let timer: number | undefined;
+let localHook: (next: State) => void = () => undefined;
+
+/** the sync layer learns about every local change through this */
+export function setLocalHook(fn: (next: State) => void) {
+  localHook = fn;
+}
+
+/** state that arrived from the cloud: shown and saved, but not counted as a local edit */
+export function replaceFromSync(next: State) {
+  state = next;
+  emit();
+  schedule();
+}
 
 function emit() {
   version += 1;
@@ -158,6 +171,7 @@ export async function restoreSnapshot(t: number): Promise<boolean> {
   await takeSnapshot('Prima del ripristino');
   state = JSON.parse(snap.json) as State;
   log('data', 'Ripristinato un backup', new Date(t).toLocaleString('it-IT'));
+  localHook(state);
   flush();
   return true;
 }
@@ -169,6 +183,7 @@ export function mutate(fn: (d: State) => void) {
   state = d;
   emit();
   schedule();
+  localHook(d);
 }
 
 function logTo(d: State, type: DecisionType, text: string, detail?: string, ids: { destId?: string; cpId?: string } = {}) {
@@ -541,12 +556,14 @@ export async function importState(s: State) {
   state = s;
   if (!state.focus) state.focus = [];
   log('data', 'Dati importati da un file JSON');
+  localHook(state);
   flush();
 }
 
 export async function resetAll() {
   await takeSnapshot('Prima del reset');
   state = emptyState();
+  localHook(state);
   flush();
 }
 
@@ -583,4 +600,4 @@ export function moveAction(cpId: string, aid: string, dir: -1 | 1) {
 }
 
 // load saved data as soon as the module is evaluated (also after a dev hot reload)
-void hydrate();
+export const hydrated: Promise<void> = hydrate();

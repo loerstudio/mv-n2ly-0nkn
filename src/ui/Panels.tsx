@@ -7,6 +7,7 @@ import { activeDest, exportJson, getMeta, importState, listSnapshots, parseImpor
 import { useUI } from './ctx';
 import { IconBell, IconChevron, IconDownload, IconPlus, IconShare, IconTrash, IconUpload } from './icons';
 import { Bar, Btn, Field, Row, Sec, Seg, Spark } from './primitives';
+import { SyncSection } from './SyncUI';
 
 // ── destination overview + timeline ────────────────────────────────────────
 export function DestView({ s }: { s: State }) {
@@ -353,6 +354,7 @@ export function SettingsView({ s }: { s: State }) {
 
   return (
     <div className="stack-lg">
+      <SyncSection />
       <Sec title="Salvataggio">
         <div className="group pad-g">
           <div className="kv">

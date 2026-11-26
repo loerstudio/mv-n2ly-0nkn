@@ -30,6 +30,10 @@ Stessa pipeline di Tesoro.
 - iPhone / iPad: Safari → Condividi → «Aggiungi alla schermata Home».
 - Mac: Safari → File → «Aggiungi al Dock» (o Chrome/Edge → Installa).
 
+## Sincronizzazione con codici (come WEEK)
+
+I dispositivi si collegano con un codice a 8 caratteri monouso (o con il link `…/#c=CODICE`) e restano allineati tramite il progetto Supabase: tabelle `mv_*` (vedi `supabase/migrations`), nessun accesso diretto alle tabelle, solo funzioni che richiedono la chiave del dispositivo. Un dispositivo collegato genera nuovi codici da Impostazioni → Sincronizzazione. Merge per record (vince l'ultima modifica), le misure si uniscono. Su iPhone e iPad il codice va inserito nell'app installata dalla schermata Home, non in Safari (spazi di archiviazione separati).
+
 ## Dati
 
 L'app parte vuota su ogni dispositivo: si crea la prima destinazione oppure si importa una rotta da un file JSON (Impostazioni → Importa da un file).

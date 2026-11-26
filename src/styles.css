@@ -609,7 +609,7 @@ ul {
   left: 20px;
   right: auto;
   width: 432px;
-  bottom: 20px;
+  bottom: 14px;
   border-radius: 28px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 0;
@@ -2352,4 +2352,63 @@ input.num {
 }
 .sheet:not(.wide) .lane-more {
   margin-top: 22px;
+}
+
+.logo-tile.big {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+}
+.code-in {
+  text-align: center;
+  font-size: 24px !important;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  padding: 14px 10px !important;
+}
+.code-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(10, 132, 255, 0.12);
+  border: 1px solid rgba(90, 168, 255, 0.35);
+}
+.code-big {
+  text-align: center;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  padding-left: 0.3em;
+  color: #fff;
+  user-select: all;
+  -webkit-user-select: all;
+}
+.code-link {
+  font-size: 12px !important;
+  color: var(--t2);
+}
+.spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--blue-hi);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* short viewports (iPhone Safari with its toolbars): two steps, more map */
+@media (max-height: 760px) and (max-width: 899px) {
+  .lane-list li:nth-child(3) {
+    display: none;
+  }
 }
