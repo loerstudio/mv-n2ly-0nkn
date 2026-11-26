@@ -77,3 +77,14 @@ export function beep() {
     /* audio not available */
   }
 }
+
+export const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+
+export function isStandalone(): boolean {
+  return (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+}
+
+/** On iPhone and iPad the Home Screen app keeps its own storage: the code has to be entered there, not in the Safari tab. */
+export function needsInstall(): boolean {
+  return (isIOS && !isStandalone()) || new URLSearchParams(location.search).has('install-help');
+}

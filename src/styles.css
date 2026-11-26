@@ -2412,3 +2412,36 @@ input.num {
     display: none;
   }
 }
+
+.steps-list {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+.steps-list li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 15px;
+  line-height: 1.35;
+}
+.steps-list li span {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 132, 255, 0.22);
+  color: var(--blue-hi);
+  font-weight: 800;
+  font-size: 13px;
+}
+.steps-list svg {
+  vertical-align: -3px;
+}

@@ -25,7 +25,15 @@ npm run build      # typecheck + build in dist/ (BASE_PATH=/<repo>/ per GitHub P
 Push su `main`: `.github/workflows/pages.yml` costruisce con `BASE_PATH=/<repo>/` e pubblica su GitHub Pages (Pages → Source = «GitHub Actions»).
 Stessa pipeline di Tesoro.
 
+Versione principale, come WEEK: Netlify su dominio root (`https://road-zq54x1.netlify.app`), con gli header di `public/_headers` (service worker e `index.html` mai in cache, così un aggiornamento arriva subito).
+
+```bash
+BASE_PATH=/ npm run build && netlify deploy --prod --dir dist --site road-zq54x1
+```
+
 ## Installazione
+
+Su iPhone e iPad il codice si inserisce **dentro l'app installata** dalla schermata Home: Safari e app installata hanno storage separati. Da Safari l'app mostra le istruzioni di installazione.
 
 - iPhone / iPad: Safari → Condividi → «Aggiungi alla schermata Home».
 - Mac: Safari → File → «Aggiungi al Dock» (o Chrome/Edge → Installa).

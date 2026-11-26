@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/store';
 import { importState, parseImport } from '../store/store';
+import { needsInstall } from '../lib/platform';
 import { useSyncInfo } from '../store/sync';
 import { useUI } from './ctx';
-import { IconNav, IconPlus, IconUpload } from './icons';
+import { IconNav, IconPlus, IconShare, IconUpload } from './icons';
 import { Btn } from './primitives';
 import { CodeEntry } from './SyncUI';
 
@@ -31,6 +32,41 @@ export function Welcome() {
     await importState(parsed.state);
     ui.toast('Rotta importata');
   };
+
+  if (needsInstall()) {
+    return (
+      <div className="welcome">
+        <div className="welcome-card glass">
+          <div className="logo-tile big" aria-hidden="true">
+            <IconNav size={30} />
+          </div>
+          <div className="brand">MATTANA VITA</div>
+          <h1>Aggiungi l'app alla schermata Home</h1>
+          <p className="muted">Fallo una volta sola, poi apri l'app dall'icona: si apre a schermo intero, funziona offline e non va reinstallata.</p>
+          <ol className="steps-list">
+            <li>
+              <span>1</span>
+              <div>
+                Tocca <b>Condividi</b> <IconShare size={17} /> in Safari.
+              </div>
+            </li>
+            <li>
+              <span>2</span>
+              <div>
+                Scegli <b>Aggiungi alla schermata Home</b>, poi <b>Aggiungi</b>.
+              </div>
+            </li>
+            <li>
+              <span>3</span>
+              <div>
+                Apri <b>Mattana Vita</b> dalla schermata Home e inserisci lì il codice.
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="welcome">

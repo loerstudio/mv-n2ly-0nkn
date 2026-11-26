@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '../config';
 import { KINDS, applyRecord, finishApply, hashOf, toRecords, unionReadings, withOrd, type Kind } from '../lib/records';
 import type { Metric, State } from '../lib/types';
+import { needsInstall } from '../lib/platform';
 import { getState, replaceFromSync, setLocalHook } from './store';
 
 // ── status ───────────────────────────────────────────────────────────────
@@ -96,12 +97,26 @@ const DB = 'mattana-vita-sync-v1';
 let S: SyncState = { key: null, deviceID: '', cursorUS: 0, lastSyncedAt: null, meta: {} };
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
+const IDENT = 'mv-identity-v1';
+/** the key is also mirrored in localStorage, in case IndexedDB is cleared on its own */
+function mirror() {
+  try {
+    localStorage.setItem(IDENT, JSON.stringify({ deviceID: S.deviceID, key: S.key }));
+  } catch {
+    /* no localStorage */
+  }
+}
+
 function persistSoon() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => void kvSet(DB, S), 300);
+  saveTimer = setTimeout(() => {
+    mirror();
+    void kvSet(DB, S);
+  }, 300);
 }
 async function persistNow(): Promise<boolean> {
   clearTimeout(saveTimer);
+  mirror();
   return kvSet(DB, S);
 }
 
@@ -394,6 +409,10 @@ export async function initSync(): Promise<'linked' | 'invalid' | 'error' | null>
   try {
     const saved = await kvGet<SyncState>(DB);
     if (saved) S = saved;
+    if (!S.key) {
+      const id = JSON.parse(localStorage.getItem(IDENT) ?? '{}') as { deviceID?: string; key?: string | null };
+      if (id.key) S = { ...S, key: id.key, deviceID: id.deviceID ?? S.deviceID };
+    }
   } catch {
     /* no storage */
   }
@@ -403,6 +422,7 @@ export async function initSync(): Promise<'linked' | 'invalid' | 'error' | null>
     startSync();
     return null;
   }
+  if (needsInstall()) return null; // on iOS the link must be opened from the installed app
   const m = location.hash.match(/[#&]c=([A-Za-z0-9]{6,12})/);
   if (!m) return null;
   history.replaceState(null, '', location.pathname + location.search);
