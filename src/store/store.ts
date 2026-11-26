@@ -1,4 +1,4 @@
-import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { clone, kvGet, kvSet } from '../lib/kv';
 import { useSyncExternalStore } from 'react';
 import { emptyState } from '../lib/seed';
 import { cpById, cpsOf, critMet, destById, metricById, nextAction, progress } from '../lib/engine';
@@ -71,19 +71,9 @@ export function useMeta() {
 
 // ── persistence ────────────────────────────────────────────────────────────
 async function writeNow() {
-  try {
-    await idbSet(DB_KEY, state);
-    savedAt = Date.now();
-    persistOk = true;
-  } catch {
-    try {
-      localStorage.setItem(DB_KEY, JSON.stringify(state));
-      savedAt = Date.now();
-      persistOk = true;
-    } catch {
-      persistOk = false;
-    }
-  }
+  const ok = await kvSet(DB_KEY, state);
+  if (ok) savedAt = Date.now();
+  persistOk = ok;
   emit();
 }
 
@@ -103,12 +93,7 @@ function sane(s: unknown): s is State {
 }
 
 export async function hydrate() {
-  let loaded: unknown;
-  try {
-    loaded = await idbGet(DB_KEY);
-  } catch {
-    loaded = undefined;
-  }
+  let loaded: unknown = await kvGet(DB_KEY);
   if (!loaded) {
     try {
       const raw = localStorage.getItem(DB_KEY);
@@ -143,21 +128,13 @@ export interface Snapshot {
 }
 
 export async function listSnapshots(): Promise<Snapshot[]> {
-  try {
-    return ((await idbGet(BACKUP_KEY)) as Snapshot[] | undefined) ?? [];
-  } catch {
-    return [];
-  }
+  return (await kvGet<Snapshot[]>(BACKUP_KEY)) ?? [];
 }
 
 export async function takeSnapshot(label: string) {
   const list = await listSnapshots();
   list.unshift({ t: Date.now(), label, json: JSON.stringify(state) });
-  try {
-    await idbSet(BACKUP_KEY, list.slice(0, 8));
-  } catch {
-    /* storage unavailable */
-  }
+  await kvSet(BACKUP_KEY, list.slice(0, 8));
 }
 
 async function dailySnapshot() {
@@ -178,7 +155,7 @@ export async function restoreSnapshot(t: number): Promise<boolean> {
 
 // ── mutation core ──────────────────────────────────────────────────────────
 export function mutate(fn: (d: State) => void) {
-  const d = structuredClone(state) as State;
+  const d = clone(state);
   fn(d);
   state = d;
   emit();

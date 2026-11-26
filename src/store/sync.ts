@@ -1,4 +1,4 @@
-import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { clone, kvGet, kvSet } from '../lib/kv';
 import { useSyncExternalStore } from 'react';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from '../config';
 import { KINDS, applyRecord, finishApply, hashOf, toRecords, unionReadings, withOrd, type Kind } from '../lib/records';
@@ -96,11 +96,11 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
 function persistSoon() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => void idbSet(DB, S).catch(() => undefined), 300);
+  saveTimer = setTimeout(() => void kvSet(DB, S), 300);
 }
 async function persistNow() {
   clearTimeout(saveTimer);
-  await idbSet(DB, S).catch(() => undefined);
+  await kvSet(DB, S);
 }
 
 function randomHex(bytes: number): string {
@@ -295,7 +295,7 @@ async function pull() {
 /** Applies the rows that are newer than this device's copy. */
 function applyRows(rows: Row[]) {
   if (!rows.length) return;
-  const next = structuredClone(getState()) as State;
+  const next = clone(getState());
   withOrd(next);
   let changed = false;
   for (const row of rows) {
@@ -375,7 +375,7 @@ async function flushOnHide() {
 /** Loads this device's sync identity, resumes syncing, and honours a #c=CODE link. */
 export async function initSync(): Promise<'linked' | 'invalid' | 'error' | null> {
   try {
-    const saved = (await idbGet(DB)) as SyncState | undefined;
+    const saved = await kvGet<SyncState>(DB);
     if (saved) S = saved;
   } catch {
     /* no storage */

@@ -21,7 +21,8 @@ export function CodeEntry({ onLinked, label = 'Collega' }: { onLinked?: () => vo
       if (r === 'invalid') setErr('Codice non valido o scaduto. Ogni codice si usa una volta sola.');
       else onLinked?.();
     } catch (e) {
-      setErr(e instanceof TypeError ? 'Nessuna connessione: riprova quando sei online.' : e instanceof Error ? e.message : 'Non riuscito');
+      const m = e instanceof Error ? e.message : '';
+      setErr(e instanceof TypeError && /fetch|network|load failed|failed to load/i.test(m) ? 'Nessuna connessione: riprova quando sei online.' : `Non riuscito${m ? `: ${m}` : ''}`);
     } finally {
       setBusy(false);
     }

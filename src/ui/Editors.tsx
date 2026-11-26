@@ -7,7 +7,7 @@ import { useUI } from './ctx';
 import { DEST_ICONS, IconDown, IconPlus, IconTrash, IconUp, destIcon } from './icons';
 import { Btn, Field, Modal, TextList } from './primitives';
 
-const clone = <T,>(v: T): T => structuredClone(v);
+import { clone } from '../lib/kv';
 
 function ActionsEditor({ actions, onChange }: { actions: Action[]; onChange: (a: Action[]) => void }) {
   const set = (i: number, text: string) => onChange(actions.map((a, j) => (j === i ? { ...a, text } : a)));
