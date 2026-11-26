@@ -18,8 +18,11 @@ export function CodeEntry({ onLinked, label = 'Collega' }: { onLinked?: () => vo
     setErr('');
     try {
       const r = await redeemPairingCode(code);
-      if (r === 'invalid') setErr('Codice non valido o scaduto. Ogni codice si usa una volta sola.');
-      else onLinked?.();
+      if (r === 'invalid') setErr('Codice non valido o scaduto. Un codice vale finché il collegamento non riesce.');
+      else {
+        if (r === 'volatile') setErr('Collegato, ma questo browser non riesce a salvare i dati: al prossimo avvio servirà di nuovo il codice (resta valido).');
+        onLinked?.();
+      }
     } catch (e) {
       const m = e instanceof Error ? e.message : '';
       setErr(e instanceof TypeError && /fetch|network|load failed|failed to load/i.test(m) ? 'Nessuna connessione: riprova quando sei online.' : `Non riuscito${m ? `: ${m}` : ''}`);
@@ -107,7 +110,7 @@ export function SyncSection() {
             <div className="code-big" aria-label="Nuovo codice">
               {code}
             </div>
-            <p className="muted">Valido 15 minuti, una volta sola. Inseriscilo sull'altro dispositivo, oppure apri questo link da lì:</p>
+            <p className="muted">Valido 15 minuti. Inseriscilo sull'altro dispositivo, oppure apri questo link da lì:</p>
             <input className="code-link" readOnly value={link} onFocus={(e) => e.currentTarget.select()} aria-label="Link di abbinamento" />
           </div>
         )}

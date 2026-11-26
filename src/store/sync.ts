@@ -84,6 +84,8 @@ interface Meta {
 }
 interface SyncState {
   key: string | null;
+  /** the pairing code is only retired once this device has really worked */
+  confirm?: boolean;
   deviceID: string;
   cursorUS: number;
   lastSyncedAt: number | null;
@@ -98,9 +100,9 @@ function persistSoon() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => void kvSet(DB, S), 300);
 }
-async function persistNow() {
+async function persistNow(): Promise<boolean> {
   clearTimeout(saveTimer);
-  await kvSet(DB, S);
+  return kvSet(DB, S);
 }
 
 function randomHex(bytes: number): string {
@@ -153,18 +155,24 @@ function onLocalChange(next: State) {
 }
 
 // ── pairing ──────────────────────────────────────────────────────────────
-/** Trades a one-time pairing code for this device's own key. */
-export async function redeemPairingCode(code: string): Promise<'ok' | 'invalid'> {
+/**
+ * Trades a pairing code for this device's own key. The code is not burned here: it is retired
+ * only after the key was safely stored and a first sync worked, so a failed attempt can be repeated.
+ */
+export async function redeemPairingCode(code: string): Promise<'ok' | 'invalid' | 'volatile'> {
   const key = randomHex(32);
   const ok = await rpc<boolean>('mv_pair_redeem', { p_code: code, p_key: key, p_label: deviceName() });
   if (!ok) return 'invalid';
-  S = { key, deviceID: S.deviceID || randomHex(8), cursorUS: 0, lastSyncedAt: null, meta: {} };
+  S = { key, deviceID: S.deviceID || randomHex(8), cursorUS: 0, lastSyncedAt: null, meta: {}, confirm: false };
   // what is already on this device is older than the cloud: the cloud wins where both have it
   diff(getState(), true);
-  S.key = key;
-  await persistNow();
+  const stored = await persistNow();
+  const back = stored ? await kvGet<SyncState>(DB) : undefined;
+  const durable = !!back && back.key === key;
+  S.confirm = durable;
+  if (durable) await persistNow();
   startSync();
-  return 'ok';
+  return durable ? 'ok' : 'volatile';
 }
 
 /** A one-time code (valid 15 minutes) for connecting another device. */
@@ -259,6 +267,15 @@ async function pass() {
     await pull();
     await push();
     S.lastSyncedAt = Date.now();
+    if (S.confirm) {
+      // first full round trip worked and the key is stored: now the code can go
+      try {
+        await rpc<boolean>('mv_pair_confirm', { p_key: S.key });
+        S.confirm = false;
+      } catch {
+        /* tried again on the next pass */
+      }
+    }
     persistSoon();
     setStatus({ type: 'upToDate' });
     emitInfo();
